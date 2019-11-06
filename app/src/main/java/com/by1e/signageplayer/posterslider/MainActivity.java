@@ -19,6 +19,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -47,8 +48,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -87,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
+    private Handler scheduleHandler;
 
     public static void unzip(File zipFile, File targetDirectory) throws IOException {
         ZipInputStream zis = new ZipInputStream(
@@ -136,30 +136,31 @@ public class MainActivity extends AppCompatActivity {
         List<Poster> posters = new ArrayList<>();
         posters.add(new DrawableImage(R.drawable.logo));
 
+        scheduleHandler = new Handler();
+
         posterSlider.setPosters(posters);
         if (isNetworkAvailable()) {
             SharedPreferences prefs = getSharedPreferences(getString(R.string.sharedPrefsFile), MODE_PRIVATE);
             ServerAddress = prefs.getString(getString(R.string.serverAddress), "http://13.232.40.50");
-            checkForupdates();
+            checkForUpdates();
         } else {
             loadFiles();
         }
 
     }
 
-    private void checkForupdates() {
-        new Timer().scheduleAtFixedRate(new TimerTask() {
+    private void checkForUpdates() {
+        scheduleHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-
                 if (isNetworkAvailable()) {
-
                     MainActivity.DownloadAssets runner = new MainActivity.DownloadAssets();
                     runner.execute(ServerAddress + "/lf");
                 }
-
             }
-        }, 0, 10000);
+        }, 1000);
+
+
     }
 
     @Override
@@ -300,7 +301,6 @@ public class MainActivity extends AppCompatActivity {
         Arrays.sort(files);
         List<Poster> posters = new ArrayList<>();
         if (files.length == 0) {
-
             Toast.makeText(getApplicationContext(), "No files", Toast.LENGTH_LONG).show();
             return;
         } else {
@@ -309,20 +309,15 @@ public class MainActivity extends AppCompatActivity {
                 if (ch.getImageExtensions().contains(extension)) {
                     posters.add(new RemoteImage("file:///" + files[i].getAbsolutePath()));
                 }
-
-            }
-            for (int i = 0; i < files.length; i++) {
-                String extension = ch.getFileExt(files[i].getName());
                 if (extension.equals("mp4")) {
                     System.out.println("file:///" + files[i].getAbsolutePath());
                     posters.add(new RemoteVideo(Uri.parse("file:///" + files[i].getAbsolutePath())));
                 }
-
             }
             posterSlider.setPosters(posters);
         }
 
-        deleteFilesWithPrefix(new File(targetDir + "/cache/"), HardwareKey);
+        //deleteFilesWithPrefix(new File(targetDir + "/cache/"), HardwareKey);
         LOADED_FILES = true;
     }
 
@@ -416,7 +411,6 @@ public class MainActivity extends AppCompatActivity {
                     LatestAssetFile = sharedPref.getString(getString(R.string.latestAssetFile), null);
                     BufferedReader br = new BufferedReader(new InputStreamReader(uc.getInputStream()));
                     final String NewAssetFile = br.readLine();
-                    br.close();
                     //System.out.println("File is new "+LatestAssetFile.equals(NewAssetFile));
                     if (LatestAssetFile == null) {
                         LatestAssetFile = NewAssetFile;
@@ -458,7 +452,7 @@ public class MainActivity extends AppCompatActivity {
                             }
                         });
                     }
-
+                    br.close();
                     uc.disconnect();
                     return true;
                 }
@@ -466,8 +460,9 @@ public class MainActivity extends AppCompatActivity {
 
             } catch (Exception ex) {
                 ex.printStackTrace();
+            } finally {
+                uc.disconnect();
             }
-            uc.disconnect();
 
             return false;
         }

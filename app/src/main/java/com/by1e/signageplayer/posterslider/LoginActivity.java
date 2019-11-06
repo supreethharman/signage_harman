@@ -46,8 +46,9 @@ public class LoginActivity extends AppCompatActivity {
         storeId = (EditText) findViewById(R.id.input_storeId);
         serverAddress = (EditText) findViewById(R.id.input_serverAddress);
         serverKey = (EditText) findViewById(R.id.input_serverKey);
-        android_id = Settings.Secure.getString(getApplicationContext().getContentResolver(),
-                Settings.Secure.ANDROID_ID);
+        android_id = Settings.Secure.ANDROID_ID;
+    /*etString(getApplicationContext().getContentResolver(),
+                Settings.Secure.ANDROID_ID);*/
         isStoragePermissionGranted();
         btnConnect.setOnClickListener(new View.OnClickListener() {
             String storeIdVal;
