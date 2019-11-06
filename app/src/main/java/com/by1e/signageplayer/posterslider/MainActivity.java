@@ -21,6 +21,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.asura.library.posters.DrawableImage;
@@ -53,158 +54,32 @@ import java.util.zip.ZipInputStream;
 
 public class MainActivity extends AppCompatActivity {
 
+    String targetDir = Environment.getExternalStorageDirectory() + File.separator + Environment.DIRECTORY_DOWNLOADS;
+    BroadcastReceiver onNotificationClick = new BroadcastReceiver() {
+        public void onReceive(Context ctxt, Intent intent) {
+            Toast.makeText(ctxt, "Ummmm...hi!", Toast.LENGTH_LONG).show();
+        }
+    };
     private PosterSlider posterSlider;
-    private DownloadManager mgr=null;
+    private DownloadManager mgr = null;
     private ProgressDialog mProgressDialog;
     private long downloadId;
     private CacheHelper ch = CacheHelper.getInstance();
     private String ServerAddress;
-    String targetDir = Environment.getExternalStorageDirectory()+File.separator+Environment.DIRECTORY_DOWNLOADS;
     private String HardwareKey;
     private String ServerKey;
     private String StoreID;
     private String LatestAssetFile;
     private boolean LOADED_FILES = false;
     private boolean IS_DOWNLOADING = false;
-
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        isStoragePermissionGranted();
-
-        mgr=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
-        //
-        registerReceiver(onComplete,
-                new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
-        registerReceiver(onNotificationClick,
-                new IntentFilter(DownloadManager.ACTION_NOTIFICATION_CLICKED));
-        posterSlider = findViewById(R.id.poster_slider);
-
-        List<Poster> posters = new ArrayList<>();
-        posters.add(new DrawableImage(R.drawable.logo));
-
-        posterSlider.setPosters(posters);
-        if(isNetworkAvailable()){
-            SharedPreferences prefs = getSharedPreferences(getString(R.string.sharedPrefsFile), MODE_PRIVATE);
-            ServerAddress = prefs.getString(getString(R.string.serverAddress), "http://13.232.40.50");
-            checkForupdates();
-        } else {
-            loadFiles();
-        }
-
-    }
-
-    private void checkForupdates() {
-        new Timer().scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-
-                if(isNetworkAvailable()){
-
-                    MainActivity.DownloadAssets runner = new MainActivity.DownloadAssets();
-                    runner.execute(ServerAddress+"/lf");
-                }
-
-            }
-        }, 0, 10000);
-    }
-
-
-    @Override
-    public void onBackPressed() {
-        finish();
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        unregisterReceiver(onComplete);
-        unregisterReceiver(onNotificationClick);
-    }
-
-    public  boolean isStoragePermissionGranted() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    == PackageManager.PERMISSION_GRANTED) {
-                return true;
-            } else {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-                return false;
-            }
-        }
-        else { //permission is automatically granted on sdk<23 upon installation
-            return true;
-        }
-    }
-    public void startDownload(String url) {
-        Uri uri=Uri.parse(url);
-
-        Environment
-                .getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                .mkdirs();
-
-        downloadId = mgr.enqueue(new DownloadManager.Request(uri)
-                .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI |
-                        DownloadManager.Request.NETWORK_MOBILE)
-                .setAllowedOverRoaming(false)
-                .setTitle(CacheHelper.getInstance().getLocalFileNameForUrl(url))
-                .setDestinationInExternalPublicDir(CacheHelper.CacheDirectory,
-                        CacheHelper.getInstance().getLocalFileNameForUrl(url)));
-        IS_DOWNLOADING = true;
-        File targetFile = new File(targetDir+"/gallery/");
-        File sourceZip = new File(Environment.getExternalStorageDirectory()+File.separator+Environment.DIRECTORY_DOWNLOADS+"/cache/"+LatestAssetFile);
-        deleteDir(targetFile);
-        deleteFile(sourceZip);
-        deleteFilesWithPrefix(new File(targetDir+"/cache/"),HardwareKey);
-
-        mProgressDialog = new ProgressDialog(this);
-        mProgressDialog.setTitle("Downloading latest image assets");
-        mProgressDialog.setIndeterminate(false);
-        mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        mProgressDialog.setCancelable(true);
-        mProgressDialog.show();
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                boolean downloading = true;
-                while(downloading) {
-                    DownloadManager.Query q = new DownloadManager.Query();
-                    q.setFilterById(downloadId);
-                    Cursor cursor = mgr.query(q);
-                    cursor.moveToFirst();
-                    final int bytesDownloaded = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
-                    int bytesTotal = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
-                    if (cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL) {
-                        downloading = false;
-                    }
-//                    final double dlProgress = (int) ((bytesDownloaded * 100l) / bytesTotal);
-                    final String msg = "Downloading data:\n\n" + ((double)bytesDownloaded) / 1000000.0 + " MB of " + + ((double)bytesTotal) / 1000000.0 + " MB";
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mProgressDialog.setMessage(msg);
-                        }
-                    });
-                    cursor.close();
-
-                }
-            }
-        }).start();
-    }
-
-
-    BroadcastReceiver onComplete=new BroadcastReceiver() {
+    BroadcastReceiver onComplete = new BroadcastReceiver() {
         public void onReceive(Context ctxt, Intent intent) {
             if (mProgressDialog != null) {
                 mProgressDialog.dismiss();
             }
             IS_DOWNLOADING = false;
             try {
-                unzip(new File(Environment.getExternalStorageDirectory()+File.separator+Environment.DIRECTORY_DOWNLOADS+"/cache/"+LatestAssetFile),new File(targetDir+"/gallery/"));
+                unzip(new File(Environment.getExternalStorageDirectory() + File.separator + Environment.DIRECTORY_DOWNLOADS + "/cache/" + LatestAssetFile), new File(targetDir + "/gallery/"));
                 loadFiles();
                 restartApp();
             } catch (IOException e) {
@@ -212,40 +87,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
-
-    BroadcastReceiver onNotificationClick=new BroadcastReceiver() {
-        public void onReceive(Context ctxt, Intent intent) {
-            Toast.makeText(ctxt, "Ummmm...hi!", Toast.LENGTH_LONG).show();
-        }
-    };
-
-    private void restartApp(){
-        Intent mStartActivity = new Intent(getApplicationContext(), ControllerActivity.class);
-        int mPendingIntentId = 123456;
-        PendingIntent mPendingIntent = PendingIntent.getActivity(getApplicationContext(), mPendingIntentId,    mStartActivity, PendingIntent.FLAG_CANCEL_CURRENT);
-        AlarmManager mgr = (AlarmManager)getApplicationContext().getSystemService(Context.ALARM_SERVICE);
-        mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
-        System.exit(0);
-    }
-
-    private String readFile(String path) throws IOException
-    {
-        StringBuilder sb = new StringBuilder();
-        BufferedReader br = new BufferedReader(new FileReader(path));
-        try
-        {
-            String line = null;
-            while ((line = br.readLine())!=null)
-            {
-                sb.append(line);
-            }
-        }
-        finally
-        {
-            br.close();
-        }
-        return sb.toString();
-    }
 
     public static void unzip(File zipFile, File targetDirectory) throws IOException {
         ZipInputStream zis = new ZipInputStream(
@@ -280,15 +121,176 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        isStoragePermissionGranted();
+
+        mgr = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        //
+
+        posterSlider = findViewById(R.id.poster_slider);
+
+        List<Poster> posters = new ArrayList<>();
+        posters.add(new DrawableImage(R.drawable.logo));
+
+        posterSlider.setPosters(posters);
+        if (isNetworkAvailable()) {
+            SharedPreferences prefs = getSharedPreferences(getString(R.string.sharedPrefsFile), MODE_PRIVATE);
+            ServerAddress = prefs.getString(getString(R.string.serverAddress), "http://13.232.40.50");
+            checkForupdates();
+        } else {
+            loadFiles();
+        }
+
+    }
+
+    private void checkForupdates() {
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+
+                if (isNetworkAvailable()) {
+
+                    MainActivity.DownloadAssets runner = new MainActivity.DownloadAssets();
+                    runner.execute(ServerAddress + "/lf");
+                }
+
+            }
+        }, 0, 10000);
+    }
+
+    @Override
+    public void onBackPressed() {
+        finish();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(onComplete,
+                new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+        registerReceiver(onNotificationClick,
+                new IntentFilter(DownloadManager.ACTION_NOTIFICATION_CLICKED));
+    }
+
+    @Override
+    protected void onStop() {
+        unregisterReceiver(onComplete);
+        unregisterReceiver(onNotificationClick);
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.i("MainActivity_Signage", "Activity destroyed");
+        super.onDestroy();
+    }
+
+    public boolean isStoragePermissionGranted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    == PackageManager.PERMISSION_GRANTED) {
+                return true;
+            } else {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+                return false;
+            }
+        } else { //permission is automatically granted on sdk<23 upon installation
+            return true;
+        }
+    }
+
+    public void startDownload(String url) {
+        Uri uri = Uri.parse(url);
+
+        Environment
+                .getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                .mkdirs();
+
+        downloadId = mgr.enqueue(new DownloadManager.Request(uri)
+                .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI |
+                        DownloadManager.Request.NETWORK_MOBILE)
+                .setAllowedOverRoaming(false)
+                .setTitle(CacheHelper.getInstance().getLocalFileNameForUrl(url))
+                .setDestinationInExternalPublicDir(CacheHelper.CacheDirectory,
+                        CacheHelper.getInstance().getLocalFileNameForUrl(url)));
+        IS_DOWNLOADING = true;
+        File targetFile = new File(targetDir + "/gallery/");
+        File sourceZip = new File(Environment.getExternalStorageDirectory() + File.separator + Environment.DIRECTORY_DOWNLOADS + "/cache/" + LatestAssetFile);
+        deleteDir(targetFile);
+        deleteFile(sourceZip);
+        deleteFilesWithPrefix(new File(targetDir + "/cache/"), HardwareKey);
+
+        mProgressDialog = new ProgressDialog(this);
+        mProgressDialog.setTitle("Downloading latest image assets");
+        mProgressDialog.setIndeterminate(false);
+        mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        mProgressDialog.setCancelable(true);
+        mProgressDialog.show();
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                boolean downloading = true;
+                while (downloading) {
+                    DownloadManager.Query q = new DownloadManager.Query();
+                    q.setFilterById(downloadId);
+                    Cursor cursor = mgr.query(q);
+                    cursor.moveToFirst();
+                    final int bytesDownloaded = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                    int bytesTotal = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                    if (cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL) {
+                        downloading = false;
+                    }
+//                    final double dlProgress = (int) ((bytesDownloaded * 100l) / bytesTotal);
+                    final String msg = "Downloading data:\n\n" + ((double) bytesDownloaded) / 1000000.0 + " MB of " + +((double) bytesTotal) / 1000000.0 + " MB";
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mProgressDialog.setMessage(msg);
+                        }
+                    });
+                    cursor.close();
+
+                }
+            }
+        }).start();
+    }
+
+    private void restartApp() {
+        Intent mStartActivity = new Intent(getApplicationContext(), ControllerActivity.class);
+        int mPendingIntentId = 123456;
+        PendingIntent mPendingIntent = PendingIntent.getActivity(getApplicationContext(), mPendingIntentId, mStartActivity, PendingIntent.FLAG_CANCEL_CURRENT);
+        AlarmManager mgr = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+        mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
+        System.exit(0);
+    }
+
+    private String readFile(String path) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        BufferedReader br = new BufferedReader(new FileReader(path));
+        try {
+            String line = null;
+            while ((line = br.readLine()) != null) {
+                sb.append(line);
+            }
+        } finally {
+            br.close();
+        }
+        return sb.toString();
+    }
 
     private boolean isNetworkAvailable() {
-        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService( CONNECTIVITY_SERVICE );
+        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
         return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
-    private void loadFiles(){
-        String path = targetDir+"/gallery/";
+    private void loadFiles() {
+        String path = targetDir + "/gallery/";
         File directory = new File(path);
 //        if (directory.isDirectory()) {
 //            Toast.makeText(getApplicationContext(),"Directory does not exist, please turn on the internet and download again!", Toast.LENGTH_LONG).show();
@@ -297,10 +299,10 @@ public class MainActivity extends AppCompatActivity {
         File[] files = directory.listFiles();
         Arrays.sort(files);
         List<Poster> posters = new ArrayList<>();
-        if(files.length == 0) {
+        if (files.length == 0) {
 
-            Toast.makeText(getApplicationContext(),"No files", Toast.LENGTH_LONG).show();
-            return ;
+            Toast.makeText(getApplicationContext(), "No files", Toast.LENGTH_LONG).show();
+            return;
         } else {
             for (int i = 0; i < files.length; i++) {
                 String extension = ch.getFileExt(files[i].getName());
@@ -320,7 +322,7 @@ public class MainActivity extends AppCompatActivity {
             posterSlider.setPosters(posters);
         }
 
-        deleteFilesWithPrefix(new File(targetDir+"/cache/"),HardwareKey);
+        deleteFilesWithPrefix(new File(targetDir + "/cache/"), HardwareKey);
         LOADED_FILES = true;
     }
 
@@ -328,7 +330,7 @@ public class MainActivity extends AppCompatActivity {
     public boolean deleteDir(File dir) {
         if (dir.isDirectory()) {
             String[] children = dir.list();
-            for (int i=0; i<children.length; i++) {
+            for (int i = 0; i < children.length; i++) {
                 boolean success = deleteDir(new File(dir, children[i]));
                 if (!success) {
                     return false;
@@ -338,13 +340,13 @@ public class MainActivity extends AppCompatActivity {
         return dir.delete();
     }
 
-    public boolean deleteFile(File file){
-        if(file.exists())
-           return file.delete();
+    public boolean deleteFile(File file) {
+        if (file.exists())
+            return file.delete();
         return false;
     }
 
-    public void deleteFilesWithPrefix(File dir, String prefix){
+    public void deleteFilesWithPrefix(File dir, String prefix) {
         for (File f : dir.listFiles()) {
             if (f.getName().startsWith(prefix)) {
                 f.delete();
@@ -372,17 +374,17 @@ public class MainActivity extends AppCompatActivity {
                 HardwareKey = prefs.getString(getString(R.string.hardwareKey), null);
 
                 JSONObject requestData = new JSONObject();
-                requestData.put("serverKey",ServerKey);
+                requestData.put("serverKey", ServerKey);
                 requestData.put("hardwareKey", HardwareKey);
-                requestData.put("displayName", StoreID+"-"+HardwareKey);
+                requestData.put("displayName", StoreID + "-" + HardwareKey);
                 requestData.put("clientType", "AndroidDisplay");
                 requestData.put("clientVersion", Integer.toString(BuildConfig.VERSION_CODE));
                 requestData.put("clientCode", 1);
                 requestData.put("operatingSystem", "v7.1.1");
-                requestData.put("serverAddress",ServerAddress);
+                requestData.put("serverAddress", ServerAddress);
 
 
-                if(makePostRequest(url ,requestData.toString())){
+                if (makePostRequest(url, requestData.toString())) {
                     resp = "Successful";
                 } else {
                     resp = "Failed";
@@ -409,14 +411,14 @@ public class MainActivity extends AppCompatActivity {
             writer.write(payload);
             writer.close();
             try {
-                if (uc.getResponseCode() == 200){
+                if (uc.getResponseCode() == 200) {
                     SharedPreferences sharedPref = getSharedPreferences(getString(R.string.sharedPrefsFile), Context.MODE_PRIVATE);
                     LatestAssetFile = sharedPref.getString(getString(R.string.latestAssetFile), null);
                     BufferedReader br = new BufferedReader(new InputStreamReader(uc.getInputStream()));
-                    final String  NewAssetFile = br.readLine();
+                    final String NewAssetFile = br.readLine();
                     br.close();
                     //System.out.println("File is new "+LatestAssetFile.equals(NewAssetFile));
-                    if(LatestAssetFile == null){
+                    if (LatestAssetFile == null) {
                         LatestAssetFile = NewAssetFile;
                         SharedPreferences.Editor editor = sharedPref.edit();
                         editor.putString(getString(R.string.latestAssetFile), NewAssetFile);
@@ -427,11 +429,10 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void run() {
                                 System.out.println(NewAssetFile);
-                                startDownload("http://13.232.40.50:8080/"+LatestAssetFile);
+                                startDownload("http://13.232.40.50:8080/" + LatestAssetFile);
                             }
                         });
-                    }
-                    else if(NewAssetFile != null && NewAssetFile != "" && NewAssetFile.length() > 0 && !LatestAssetFile.equals(NewAssetFile)){
+                    } else if (NewAssetFile != null && NewAssetFile != "" && NewAssetFile.length() > 0 && !LatestAssetFile.equals(NewAssetFile)) {
                         SharedPreferences.Editor editor = sharedPref.edit();
                         editor.putString(getString(R.string.latestAssetFile), NewAssetFile);
                         LatestAssetFile = NewAssetFile;
@@ -441,14 +442,12 @@ public class MainActivity extends AppCompatActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                startDownload("http://13.232.40.50:8080/"+LatestAssetFile);
+                                startDownload("http://13.232.40.50:8080/" + LatestAssetFile);
                             }
                         });
 
 
-
-                    }
-                    else if (!LOADED_FILES && !IS_DOWNLOADING){
+                    } else if (!LOADED_FILES && !IS_DOWNLOADING) {
                         //unzip(new File(Environment.getExternalStorageDirectory()+File.separator+Environment.DIRECTORY_DOWNLOADS+"/cache/"+LatestAssetFile),new File(targetDir+"/gallery/"));
                         runOnUiThread(new Runnable() {
                             @Override
