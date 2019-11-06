@@ -420,7 +420,7 @@ public class MainActivity extends AppCompatActivity {
                         LatestAssetFile = NewAssetFile;
                         SharedPreferences.Editor editor = sharedPref.edit();
                         editor.putString(getString(R.string.latestAssetFile), NewAssetFile);
-                        editor.commit();
+                        editor.apply();
                         //startDownload(ServerAddress+"/"+LatestAssetFile);
                         System.out.println("first else");
                         runOnUiThread(new Runnable() {
@@ -435,7 +435,7 @@ public class MainActivity extends AppCompatActivity {
                         SharedPreferences.Editor editor = sharedPref.edit();
                         editor.putString(getString(R.string.latestAssetFile), NewAssetFile);
                         LatestAssetFile = NewAssetFile;
-                        editor.commit();
+                        editor.apply();
                         System.out.println("second else");
                         //startDownload(ServerAddress+"/"+LatestAssetFile);
                         runOnUiThread(new Runnable() {
