@@ -285,9 +285,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isNetworkAvailable() {
-        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+        try {
+            ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+            return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void loadFiles() {
@@ -298,12 +302,12 @@ public class MainActivity extends AppCompatActivity {
 //            return ;
 //        }
         File[] files = directory.listFiles();
-        Arrays.sort(files);
-        List<Poster> posters = new ArrayList<>();
-        if (files.length == 0) {
+        if (files == null) {
             Toast.makeText(getApplicationContext(), "No files", Toast.LENGTH_LONG).show();
             return;
         } else {
+            Arrays.sort(files);
+            List<Poster> posters = new ArrayList<>();
             for (int i = 0; i < files.length; i++) {
                 String extension = ch.getFileExt(files[i].getName());
                 if (ch.getImageExtensions().contains(extension)) {
