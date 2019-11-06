@@ -130,13 +130,13 @@ public class MainActivity extends AppCompatActivity {
 
         mgr = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
         //
+        scheduleHandler = new Handler();
 
         posterSlider = findViewById(R.id.poster_slider);
 
         List<Poster> posters = new ArrayList<>();
         posters.add(new DrawableImage(R.drawable.logo));
 
-        scheduleHandler = new Handler();
 
         posterSlider.setPosters(posters);
         if (isNetworkAvailable()) {
