@@ -1,9 +1,6 @@
 package com.by1e.signageplayer.posterslider;
 
 import android.Manifest;
-
-import com.by1e.signageplayer.posterslider.BuildConfig;
-
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -11,13 +8,11 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.os.Bundle;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import org.json.JSONObject;
@@ -27,38 +22,36 @@ import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-/**
- * An example full-screen activity that shows and hides the system UI (i.e.
- * status bar and navigation/system bar) with user interaction.
- */
 public class LoginActivity extends AppCompatActivity {
+    private final String serverAddress = "http://13.232.40.50:8081";
+    private final String serverKey = "qwerty";
     Button btnConnect;
-    EditText storeId;
-    EditText serverAddress;
-    EditText serverKey;
+    String storeId = "";
     private String android_id;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_login);
-        btnConnect = findViewById(R.id.btn_connect);
+        /*btnConnect = findViewById(R.id.btn_connect);
         storeId = (EditText) findViewById(R.id.input_storeId);
         serverAddress = (EditText) findViewById(R.id.input_serverAddress);
-        serverKey = (EditText) findViewById(R.id.input_serverKey);
+        serverKey = (EditText) findViewById(R.id.input_serverKey);*/
         android_id = Settings.Secure.ANDROID_ID;
     /*etString(getApplicationContext().getContentResolver(),
                 Settings.Secure.ANDROID_ID);*/
-        isStoragePermissionGranted();
-        btnConnect.setOnClickListener(new View.OnClickListener() {
+
+
+
+        /*btnConnect.setOnClickListener(new View.OnClickListener() {
             String storeIdVal;
             String serverAddressVal;
             String serverKeyVal;
             @Override
             public void onClick(View view) {
                 if (validateFields()){
-                    AsyncTaskRunner runner = new AsyncTaskRunner();
-                    runner.execute(storeIdVal,serverAddressVal,serverKeyVal);
+
                 } else {
                     Toast.makeText(getApplicationContext(), "Please input all fields", Toast.LENGTH_LONG).show();
                 }
@@ -79,9 +72,7 @@ public class LoginActivity extends AppCompatActivity {
             private boolean isEmpty(EditText etText) {
                 return etText.getText().toString().trim().length() == 0;
             }
-        });
-
-
+        });*/
 
 
         // Set up the user interaction to manually show or hide the system UI.
@@ -92,11 +83,21 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (isStoragePermissionGranted()) {
+            AsyncTaskRunner runner = new AsyncTaskRunner();
+            runner.execute(storeId, serverAddress, serverKey);
+        }
+    }
+
+    @Override
     public void onBackPressed() {
         finish();
     }
 
-    public  boolean isStoragePermissionGranted() {
+    public boolean isStoragePermissionGranted() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     == PackageManager.PERMISSION_GRANTED) {
@@ -105,8 +106,7 @@ public class LoginActivity extends AppCompatActivity {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
                 return false;
             }
-        }
-        else { //permission is automatically granted on sdk<23 upon installation
+        } else { //permission is automatically granted on sdk<23 upon installation
             return true;
         }
     }
@@ -114,11 +114,11 @@ public class LoginActivity extends AppCompatActivity {
 
     private class AsyncTaskRunner extends AsyncTask<String, String, String> {
 
-        private String resp;
         ProgressDialog progressDialog;
         String storeIdVal;
         String serverAddressVal;
         String serverKeyVal;
+        private String resp;
 
         @Override
         protected String doInBackground(String... params) {
@@ -131,26 +131,26 @@ public class LoginActivity extends AppCompatActivity {
 
 
                 JSONObject requestData = new JSONObject();
-                requestData.put("serverKey",serverKeyVal);
+                requestData.put("serverKey", serverKeyVal);
                 requestData.put("hardwareKey", android_id);
-                requestData.put("displayName", storeIdVal+"-"+android_id);
+                requestData.put("displayName", storeIdVal + "-" + android_id);
                 requestData.put("clientType", "AndroidDisplay");
                 requestData.put("clientVersion", Integer.toString(BuildConfig.VERSION_CODE));
                 requestData.put("clientCode", 1);
                 requestData.put("operatingSystem", "v7.1.1");
 
-                requestData.put("serverAddress",serverAddressVal);
+                requestData.put("serverAddress", serverAddressVal);
 
                 SharedPreferences sharedPref = getSharedPreferences(getString(R.string.sharedPrefsFile), Context.MODE_PRIVATE);
                 SharedPreferences.Editor editor = sharedPref.edit();
                 editor.putString(getString(R.string.hardwareKey), android_id);
-                editor.putString(getString(R.string.displayName), storeIdVal+"-"+android_id);
+                editor.putString(getString(R.string.displayName), storeIdVal + "-" + android_id);
                 editor.putString(getString(R.string.storeId), storeIdVal);
                 editor.putString(getString(R.string.serverAddress), serverAddressVal);
                 editor.putString(getString(R.string.serverKey), serverKeyVal);
                 editor.commit();
 
-                if(makePostRequest(serverAddressVal,requestData.toString())){
+                if (makePostRequest(serverAddressVal, requestData.toString())) {
                     resp = "Successful";
                     Intent activityIntent = new Intent(getApplicationContext(), MainActivity.class);
                     startActivity(activityIntent);
@@ -167,7 +167,7 @@ public class LoginActivity extends AppCompatActivity {
         }
 
         public boolean makePostRequest(String stringUrl, String payload) throws IOException {
-            URL url = new URL(stringUrl+"/rd");
+            URL url = new URL(stringUrl + "/rd");
             HttpURLConnection uc = (HttpURLConnection) url.openConnection();
             String line;
             StringBuffer jsonString = new StringBuffer();
@@ -181,7 +181,7 @@ public class LoginActivity extends AppCompatActivity {
             writer.write(payload);
             writer.close();
             try {
-                if (uc.getResponseCode() == 200){
+                if (uc.getResponseCode() == 200) {
                     SharedPreferences sharedPref = getSharedPreferences(getString(R.string.sharedPrefsFile), Context.MODE_PRIVATE);
                     SharedPreferences.Editor editor = sharedPref.edit();
 
@@ -210,7 +210,7 @@ public class LoginActivity extends AppCompatActivity {
         protected void onPostExecute(String result) {
             // execution of result of Long time consuming operation
             progressDialog.dismiss();
-            Toast.makeText(getApplicationContext(), result , Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), result, Toast.LENGTH_LONG).show();
         }
 
 
@@ -228,8 +228,6 @@ public class LoginActivity extends AppCompatActivity {
 
         }
     }
-
-
 
 
 }
