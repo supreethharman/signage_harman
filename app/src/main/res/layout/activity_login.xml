@@ -1,15 +1,14 @@
 <LinearLayout android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingLeft="24dp"
-    android:paddingRight="24dp"
-    android:background="#FFFFFF"
+    android:background="@color/bgColor"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
         <ImageView android:src="@drawable/logo"
-            android:layout_width="wrap_content"
-            android:layout_height="72dp"
-            android:layout_gravity="center_horizontal" />
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="16dp"
+            android:layout_gravity="center" />
 
         <!-- Server Address Label -->
         <!--<android.support.design.widget.TextInputLayout
